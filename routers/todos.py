@@ -134,3 +134,35 @@ async def delete_todo(user: user_dependency,db: db_dependency ,todo_id: int=Path
     raise HTTPException(status_code=404,detail="Todo not found.")
   db.query(Todos).filter(Todos.id == todo_id).filter(Todos.owner_id==user.get("id")).delete()
   db.commit()
+
+
+
+from kafka import KafkaProducer
+import json
+
+producer = KafkaProducer(
+    bootstrap_servers=['localhost:9092'],
+    value_serializer=lambda v: json.dumps(v).encode('utf-8')
+)
+
+@router.post('/send_todo_to_archive/{todo_id}')
+def send_todo_to_archive(todo_id: int, db: Session = Depends(get_db)):
+    # Знайти завдання за id
+    todo = db.query(Todos).filter(Todos.id == todo_id).first()
+    if not todo:
+        raise HTTPException(status_code=404, detail="Todo not found")
+    
+    # Сформувати повідомлення
+    todo_data = {
+        "id": todo.id,
+        "title": todo.title,
+        "description": todo.description,
+        "priority": todo.priority,
+        "complete": todo.complete
+    }
+    
+    # Відправити повідомлення в Kafka
+    producer.send('todo_topic', todo_data)
+    producer.flush()  # Переконатися, що повідомлення відправлено
+    
+    return {"message": f"Todo with id {todo_id} sent to archive"}
