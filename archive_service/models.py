@@ -1,4 +1,4 @@
-from database import Base
+from archive_service.database import Base
 from sqlalchemy import Column, Integer, String, ForeignKey, Boolean
 
 class TodosArchive(Base):

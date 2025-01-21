@@ -4,9 +4,9 @@ from kafka import KafkaConsumer
 from sqlalchemy.orm import Session
 import json
 import threading
-from database import SessionLocal
-from models import Base, TodosArchive
-from database import engine
+from archive_service.database import SessionLocal,engine
+from archive_service.models import Base, TodosArchive
+
 
 app = FastAPI()
 
@@ -21,6 +21,7 @@ consumer = KafkaConsumer(
 
 messages = []
 Base.metadata.create_all(bind=engine)
+
 
 
 
@@ -61,3 +62,4 @@ async def get_messages():
         return {"Archived todos": [todo.__dict__ for todo in todos]}
     finally:
         db.close()
+

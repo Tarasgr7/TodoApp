@@ -1,8 +1,8 @@
 from typing import Annotated
 from sqlalchemy.orm import Session
 from fastapi import Depends, HTTPException,Path,APIRouter, Request
-from models import Todos
-from database import engine, SessionLocal
+from todos.models import Todos
+from todos.database import engine, SessionLocal
 from starlette import status
 from pydantic import BaseModel, Field
 from .auth import get_current_user
@@ -21,7 +21,7 @@ producer = KafkaProducer(
 
 
 
-templates = Jinja2Templates(directory="./templates")
+templates = Jinja2Templates(directory="todos/templates")
 
 router=APIRouter(
   prefix='/todos',

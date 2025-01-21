@@ -1,10 +1,10 @@
 from typing import Annotated
 from fastapi import  APIRouter, Depends,status,HTTPException,Request
 from pydantic import BaseModel
-from models import Users
+from todos.models import Users
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
-from database import SessionLocal
+from todos.database import SessionLocal
 from fastapi.security import OAuth2PasswordRequestForm,OAuth2PasswordBearer
 from datetime import timedelta, datetime
 from jose import jwt,JWTError
@@ -45,7 +45,7 @@ def get_db():
 
 db_dependency=Annotated[Session,Depends(get_db)]
 
-templates = Jinja2Templates(directory="./templates")
+templates = Jinja2Templates(directory="todos/templates")
 
 
 @router.get("/login-page")
