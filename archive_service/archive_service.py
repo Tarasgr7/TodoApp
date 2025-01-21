@@ -1,49 +1,63 @@
-from fastapi import FastAPI
+from fastapi import FastAPI,Depends
+from typing import List, Annotated
 from kafka import KafkaConsumer
-from sqlalchemy import create_engine, Column, Integer, String, Boolean
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Session
 import json
+import threading
+from database import SessionLocal
+from models import Base, TodosArchive
+from database import engine
 
 app = FastAPI()
 
-# Налаштування бази даних SQLite
-DATABASE_URL = "sqlite:///./archive.db"
-Base = declarative_base()
-engine = create_engine(DATABASE_URL)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+# Ініціалізація Kafka-консумера
+consumer = KafkaConsumer(
+    'my_topic',
+    bootstrap_servers='localhost:9092',
+    group_id='consumer-group-id',
+    auto_offset_reset='earliest',
+    value_deserializer=lambda x: json.loads(x.decode('utf-8'))
+)
 
-class Todo(Base):
-    __tablename__ = "todos"
-    id = Column(Integer, primary_key=True, index=True)
-    title = Column(String, index=True)
-    description = Column(String, index=True)
-    priority = Column(Integer)
-    complete = Column(Boolean, default=False)
-
+messages = []
 Base.metadata.create_all(bind=engine)
 
-# Kafka Consumer
-def consume_kafka():
-    consumer = KafkaConsumer(
-        'todo_topic',
-        bootstrap_servers=['localhost:9092'],
-        auto_offset_reset='earliest',
-        group_id='archive_service',
-        value_deserializer=lambda x: json.loads(x.decode('utf-8'))
-    )
+
+
+def consume_messages():
+    """
+    Функція для обробки отриманих повідомлень із Kafka та збереження їх у базу даних.
+    """
     db = SessionLocal()
-    for message in consumer:
-        todo_data = message.value
-        # Збереження в базу даних
-        new_todo = Todo(**todo_data)
-        db.add(new_todo)
-        db.commit()
-        print(f"Archived Todo: {todo_data}")
+    try:
+        for message in consumer:
+            try:
+                archive_todo = message.value
+                if isinstance(archive_todo, dict) and 'title' in archive_todo:
+                    print(f"Archiving Todo: {archive_todo['title']}")
+                    # Збереження в базу даних
+                    todo_record = TodosArchive(**archive_todo)
+                    db.add(todo_record)
+                    db.commit()
+                    db.refresh(todo_record)
+                else:
+                    print(f"Invalid message format: {message.value}")
+            except Exception as e:
+                print(f"Error processing message: {e}")
+    finally:
+        db.close()
 
-import threading
-threading.Thread(target=consume_kafka, daemon=True).start()
+# Запуск споживача в окремому потоці
+threading.Thread(target=consume_messages, daemon=True).start()
 
-@app.get("/")
-def health_check():
-    return {"status": "Archive service running"}
+@app.get("/messages/")
+async def get_messages():
+    """
+    Отримати всі архівовані повідомлення з бази даних.
+    """
+    db = SessionLocal()
+    try:
+        todos = db.query(TodosArchive).all()
+        return {"Archived todos": [todo.__dict__ for todo in todos]}
+    finally:
+        db.close()

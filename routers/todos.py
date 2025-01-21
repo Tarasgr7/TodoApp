@@ -8,6 +8,18 @@ from pydantic import BaseModel, Field
 from .auth import get_current_user
 from starlette.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
+from fastapi import FastAPI
+from kafka import KafkaProducer
+import json
+
+
+
+producer = KafkaProducer(
+    bootstrap_servers='localhost:9092',
+    value_serializer=lambda v: json.dumps(v).encode('utf-8')
+)
+
+
 
 templates = Jinja2Templates(directory="./templates")
 
@@ -16,6 +28,7 @@ router=APIRouter(
   tags=['todo']
 )
 
+TOPIC="my_topic"
 
 def get_db():
   db=SessionLocal()
@@ -135,34 +148,25 @@ async def delete_todo(user: user_dependency,db: db_dependency ,todo_id: int=Path
   db.query(Todos).filter(Todos.id == todo_id).filter(Todos.owner_id==user.get("id")).delete()
   db.commit()
 
-
-
-from kafka import KafkaProducer
-import json
-
-producer = KafkaProducer(
-    bootstrap_servers=['localhost:9092'],
-    value_serializer=lambda v: json.dumps(v).encode('utf-8')
-)
-
-@router.post('/send_todo_to_archive/{todo_id}')
-def send_todo_to_archive(todo_id: int, db: Session = Depends(get_db)):
-    # Знайти завдання за id
-    todo = db.query(Todos).filter(Todos.id == todo_id).first()
-    if not todo:
-        raise HTTPException(status_code=404, detail="Todo not found")
-    
-    # Сформувати повідомлення
-    todo_data = {
-        "id": todo.id,
-        "title": todo.title,
-        "description": todo.description,
-        "priority": todo.priority,
-        "complete": todo.complete
+@router.post("/archive_todos/{todo_id}",status_code=status.HTTP_202_ACCEPTED)
+async def archive_todo(todo_id: int, db: db_dependency):
+    """
+    Архівування завдання з БД та повідомленням в Kafka
+    """
+    todos=db.query(Todos).filter(Todos.id==todo_id).first()
+    if todos is None:
+        raise HTTPException(status_code=404, detail="Todo not found.")
+    todos_json={
+       "title":todos.title,
+       "description":todos.description,
+       "priority":todos.priority,
+       "complete":todos.complete,
+       "owner_id":todos.owner_id,
     }
-    
-    # Відправити повідомлення в Kafka
-    producer.send('todo_topic', todo_data)
-    producer.flush()  # Переконатися, що повідомлення відправлено
-    
-    return {"message": f"Todo with id {todo_id} sent to archive"}
+    if todos.complete:
+      producer.send(TOPIC, todos_json)
+      producer.flush()
+      return {"status": "Message sent", "topic": TOPIC, "message": todos_json}
+    else:
+      raise HTTPException(status_code=400, detail="Todo is not completed.")
+
