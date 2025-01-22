@@ -1,7 +1,7 @@
 from typing import Annotated
 from sqlalchemy.orm import Session
 from fastapi import Depends, HTTPException,Path,APIRouter, Request
-from todos.models import Todos
+from todos.models import Todos,Users
 from todos.database import engine, SessionLocal
 from starlette import status
 from pydantic import BaseModel, Field
@@ -11,6 +11,13 @@ from fastapi.templating import Jinja2Templates
 from fastapi import FastAPI
 from kafka import KafkaProducer
 import json
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+TOPIC_ARCHIVE = os.getenv("TOPIC_ARCHIVE")
+TOPIC_NOTIFACATION = os.getenv("TOPIC_NOTIFACATION")
 
 
 
@@ -21,6 +28,7 @@ producer = KafkaProducer(
 
 
 
+
 templates = Jinja2Templates(directory="todos/templates")
 
 router=APIRouter(
@@ -28,7 +36,6 @@ router=APIRouter(
   tags=['todo']
 )
 
-TOPIC="my_topic"
 
 def get_db():
   db=SessionLocal()
@@ -42,7 +49,7 @@ user_dependency=Annotated[dict,Depends(get_current_user)]
 
 class TodoRequest(BaseModel):
     title: str = Field(min_length=3)
-    description: str = Field(min_length=3, max_length=100)
+    description: str = Field(min_length=3, max_length=500)
     priority: int = Field(gt=0, lt=6)
     complete: bool
 
@@ -118,10 +125,24 @@ async def create_todo(user: user_dependency, db: db_dependency, todo_request: To
 
   if user is None:
     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,detail='User is not authorized')
+  print(todo_request)
   todo_model= Todos(**todo_request.model_dump(),owner_id=user.get('id'))
-
+  users=db.query(Users).filter(Users.id==user.get('id')).first()
+  print(user.get('id'))
   db.add(todo_model)
   db.commit()
+  if users.email:
+    json_message={
+      "user_email":users.email,
+      "title":todo_request.title,
+      "description":todo_request.description,
+      "priority":todo_request.priority,
+    }
+    producer.send(TOPIC_NOTIFACATION, json_message)
+    producer.flush()
+    print(json_message)
+    return {"status": "Message sent", "topic": TOPIC_NOTIFACATION, "message": json_message}
+
 
 
 @router.put('/todo/{todo_id}',status_code=status.HTTP_204_NO_CONTENT)
@@ -164,9 +185,10 @@ async def archive_todo(todo_id: int, db: db_dependency):
        "owner_id":todos.owner_id,
     }
     if todos.complete:
-      producer.send(TOPIC, todos_json)
+      producer.send(TOPIC_ARCHIVE, todos_json)
       producer.flush()
-      return {"status": "Message sent", "topic": TOPIC, "message": todos_json}
+      print("Todo was archived")
+      return {"status": "Message sent", "topic": TOPIC_ARCHIVE, "message": todos_json}
     else:
       raise HTTPException(status_code=400, detail="Todo is not completed.")
 

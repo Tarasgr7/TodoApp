@@ -6,13 +6,18 @@ import json
 import threading
 from archive_service.database import SessionLocal,engine
 from archive_service.models import Base, TodosArchive
+import os
+from dotenv import load_dotenv
 
+load_dotenv()
+
+TOPIC_ARCHIVE = os.getenv("TOPIC_ARCHIVE")
 
 app = FastAPI()
 
 # Ініціалізація Kafka-консумера
 consumer = KafkaConsumer(
-    'my_topic',
+    TOPIC_ARCHIVE,
     bootstrap_servers='localhost:9092',
     group_id='consumer-group-id',
     auto_offset_reset='earliest',

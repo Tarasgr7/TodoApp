@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Notification</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(to right, #6a11cb, #2575fc);
+            color: #333;
+            margin: 0;
+            padding: 20px;
+        }
+        .email-container {
+            background: #ffffff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+            max-width: 600px;
+            margin: 40px auto;
+            border: 1px solid #e3e3e3;
+        }
+        .header {
+            text-align: center;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #f1f1f1;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 26px;
+            color: #4e54c8;
+            text-transform: uppercase;
+        }
+        .content {
+            line-height: 1.8;
+            color: #555;
+        }
+        .content p {
+            margin: 15px 0;
+            font-size: 16px;
+        }
+        .content p strong {
+            color: #4e54c8;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            font-size: 14px;
+            color: #999;
+        }
+        .button {
+            display: inline-block;
+            background: #4e54c8;
+            color: #ffffff;
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            margin-top: 20px;
+        }
+        .button:hover {
+            background: #373baf;
+        }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <div class="header">
+            <h1>Notification Alert</h1>
+        </div>
+        <div class="content">
+            <p><strong>Email:</strong> {{ email }}</p>
+            <p><strong>Todos:</strong> Your todo named <strong>{{ title }}</strong> has been successfully created.</p>
+            <p><strong>Description:</strong> {{ description }}</p>
+            <p><strong>Priority:</strong> {{ priority }}</p>
+        </div>
+        <div class="footer">
+            <p>This is an automated email. Please do not reply to this message.</p>
+        </div>
+    </div>
+</body>
+</html>
