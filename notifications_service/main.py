@@ -26,7 +26,7 @@ consumer = KafkaConsumer(
     value_deserializer=lambda x: json.loads(x.decode('utf-8'))
 )
 
-email_templates_env = Environment(loader=FileSystemLoader("notifications/templates"))
+email_templates_env = Environment(loader=FileSystemLoader("notifications_service/templates"))
 
 
 
